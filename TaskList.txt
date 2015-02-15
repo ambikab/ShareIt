@@ -1,0 +1,16 @@
+
+Installing:
+
+	* Eclipse.
+	* Maven
+	* Github - GitBash / Git for Windows.
+
+Task:
+
+	* Create a repository in gitHub
+	* Select a prototype for the project.
+	* Add all the required dependencies.
+	* Create wireframes.
+	* Implement using html / css / bootstrp.
+
+
