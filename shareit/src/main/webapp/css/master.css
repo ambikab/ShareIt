@@ -1,0 +1,70 @@
+.navbar-inner {
+    min-height: 70px;
+    
+}
+
+.navbar-inverse .brand {
+	color: #5bc0de;
+    font-size: 24px;
+}
+
+.banner {
+	padding-top: 15px;
+}
+
+.navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container {
+    width: 87%;
+}
+
+.container {
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+.menu {
+	float:right;
+	letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.menu > .nav > .active > a {
+	border-radius: 3px;
+    background-color: #5bc0de;
+    color: #fff;
+}
+
+body {
+    font-size: 14px;
+}
+
+.circle {
+    background: #5bc0de;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+}
+
+.features {
+	border:1px;
+	padding-left:4%;	
+}
+
+.sub {
+	margin-top:5%;
+	width : 300px;
+}
+
+.leftSub {
+	float:left;
+}
+
+.rightSub {
+	float:right;
+}
+
+.ad {
+	margin-top:25%;
+	text-align:center;
+}
