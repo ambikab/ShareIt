@@ -8,3 +8,12 @@
 	margin-top:12%;
 	margin-left:0%;
 }
+
+.navbar-inverse .nav li.dropdown.open > .dropdown-toggle, .navbar-inverse .nav li.dropdown.active > .dropdown-toggle, .navbar-inverse .nav li.dropdown.open.active > .dropdown-toggle {
+    background-color: #5bc0de;
+}
+
+.docIdDiv{
+	padding-left:10px; 
+	padding-right:10px;
+}

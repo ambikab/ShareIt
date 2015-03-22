@@ -21,7 +21,20 @@
 						<ul class="nav">
 							<li><a href="index.html">Home</a></li>
 							<li><a href="document.html">New</a></li>
-							<li class="active"><a href="#">Retrieve</a></li>
+							<!--li class="active"><a href="#">Retrieve</a></li-->
+							<li class="active dropdown"><a data-toggle="dropdown"
+								class="dropdown-toggle" role="button" href="#" id="drop1">Retreive
+									<b class="caret"></b>
+							</a>
+								<ul aria-labelledby="drop1" role="menu" class="dropdown-menu">
+									<li role="presentation">
+										<div class="docIdDiv input-append">
+											<input class="span2" placeholder="Document ID" id="docId"
+												type="text">
+											<button id="docIdBtn" class="btn" type="button">Go!</button>
+										</div>
+									</li>
+								</ul></li>
 							<li><a href="team.html">About Us</a></li>
 						</ul>
 					</div>
@@ -35,23 +48,22 @@
 
 		<div class="features">
 			<div class="notepad">
-					Document ID: <span id="documentId">TestID </span> 
-					<br/> <br/>
-					<textarea id="textEditor" name="code" style="disply:none;"></textarea>
+				Document ID: <span id="documentId">TestID </span> <br /> <br />
+				<textarea id="textEditor" name="code" style="disply: none;"></textarea>
 			</div>
 
 		</div>
 	</div>
 
-
 	<!-- Links for javascript files. -->
 	<script src="http://code.jquery.com/jquery.js"></script>
 	<script src="bootstrap/js/bootstrap.min.js"></script>
 	<script src="js/editor.js"></script>
+	<script src="js/retrieveDocContents.js"></script>
 	<!-- Code mirror scripts -->
 	<script src="CodeMirror/lib/codemirror.js"></script>
 	<script src="CodeMirror/mode/javascript/javascript.js"></script>
 	<script src="CodeMirror/addon/fold/foldcode.js"></script>
-  	<script src="CodeMirror/addon/fold/foldgutter.js"></script>
+	<script src="CodeMirror/addon/fold/foldgutter.js"></script>
 
 </body>
