@@ -1,4 +1,4 @@
-package org.edu.comp512;
+package org.edu.comp512.util;
 
 public class IdGenerator {
 
