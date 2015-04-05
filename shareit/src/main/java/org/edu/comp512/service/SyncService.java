@@ -17,7 +17,7 @@ import org.edu.comp512.model.State;
  * @author AMBIKA BABUJI
  *
  */
-@Path("/history")
+@Path("/operations")
 public class SyncService {
 		
 	@POST	

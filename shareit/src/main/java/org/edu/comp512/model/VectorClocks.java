@@ -12,30 +12,39 @@ import java.util.Set;
 public class VectorClocks {
 
 	//represents the vector clock.
-	HashMap<String, Integer> vector;
+	HashMap<Integer, Integer> vector;
 
 	/**
 	 * 
 	 */
 	public VectorClocks() {
-		vector = new HashMap<String, Integer>();
+		vector = new HashMap<Integer, Integer>();
 	}
 
 	/**
 	 * 
 	 * @param vector
 	 */
-	public VectorClocks(HashMap<String, Integer> vector) {
+	public VectorClocks(HashMap<Integer, Integer> vector) {
 		super();
 		this.vector = vector;
 	}
 
+	public HashMap<Integer, Integer> getVector() {
+		return vector;
+	}
+
+
+	public void setVector(HashMap<Integer, Integer> vector) {
+		this.vector = vector;
+	}
+	
 	/**
 	 * Adds a new client's clock value to existing vector.
 	 * @param clientId
 	 * @param clockVal
 	 */
-	public void setClockVal(String clientId, int clockVal) {
+	public void setClockVal(Integer clientId, int clockVal) {
 		this.vector.put(clientId, clockVal);
 	}
 
@@ -55,9 +64,9 @@ public class VectorClocks {
 	 * @return
 	 */
 	public int compareTo(VectorClocks vector1, VectorClocks vector2) {
-		Set<String> keys1 = mergeKeys(vector1.vector.keySet(), vector2.vector.keySet());
+		Set<Integer> keys1 = vector1.vector.keySet();
 		boolean great = false, less = false;
-		for (String clientId : keys1) {
+		for (int clientId : keys1) {
 			int val1 = vector1.vector.containsKey(clientId) ? vector1.vector.get(clientId) : 0;
 			int val2 = vector2.vector.containsKey(clientId) ? vector2.vector.get(clientId) : 0;
 			if (val1 > val2) great = true;
@@ -75,9 +84,9 @@ public class VectorClocks {
 	 * @return
 	 */
 	public VectorClocks getMaxVector(VectorClocks vector1) {
-		Set<String> keys1 = mergeKeys(vector1.vector.keySet(), this.vector.keySet());
-		HashMap<String, Integer> maxMap = new HashMap<String, Integer>();
-		for (String clientId : keys1) {
+		Set<Integer> keys1 = vector1.vector.keySet();
+		HashMap<Integer, Integer> maxMap = new HashMap<Integer, Integer>();
+		for (int clientId : keys1) {
 			int val1 = vector1.vector.containsKey(clientId) ? vector1.vector.get(clientId) : 0;
 			int val2 = this.vector.containsKey(clientId) ? this.vector.get(clientId) : 0;
 			int max = val1 > val2 ? val1 : val2;
@@ -92,10 +101,10 @@ public class VectorClocks {
 	 * @param keySet2
 	 * @return
 	 */
-	public static Set<String> mergeKeys(Set<String> keySet1, Set<String> keySet2) {
-		Set<String> keySet = new HashSet<String>();
-		for (String key : keySet1) keySet.add(key);
-		for (String key : keySet2) keySet.add(key);
+	public static Set<Integer> mergeKeys(Set<Integer> keySet1, Set<Integer> keySet2) {
+		Set<Integer> keySet = new HashSet<Integer>();
+		for (int key : keySet1) keySet.add(key);
+		for (int key : keySet2) keySet.add(key);
 		return keySet;
 	}
 }

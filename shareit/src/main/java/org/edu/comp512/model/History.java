@@ -9,26 +9,15 @@ import java.util.List;
  */
 public class History {
 
-	String documentId;
-
 	List<Operation> operations;
 
 	List<VectorClocks> operationCnt;
 
-	public History(String documentId, List<Operation> operations,
+	public History(List<Operation> operations,
 			List<VectorClocks> operationCnt) {
 		super();
-		this.documentId = documentId;
 		this.operations = operations;
 		this.operationCnt = operationCnt;
-	}
-
-	public String getDocumentId() {
-		return documentId;
-	}
-
-	public void setDocumentId(String documentId) {
-		this.documentId = documentId;
 	}
 
 	public List<Operation> getOperations() {
@@ -46,19 +35,23 @@ public class History {
 	public void setOperationCnt(List<VectorClocks> operationCnt) {
 		this.operationCnt = operationCnt;
 	}
-	
+
 	/**
 	 * adds new operation to the document's log.
 	 */
 	public synchronized void addOperation(Operation newOp) {
 		operations.add(newOp);
-		VectorClocks curMax = newOp.vectors.getMaxVector(operationCnt.get(operationCnt.size() - 1));
+		VectorClocks curMax = null;
+		if (operationCnt.size() == 0)
+			curMax = (newOp.vectors);
+		else
+			curMax = newOp.vectors.getMaxVector(operationCnt.get(operationCnt.size() - 1));
 		operationCnt.add(curMax);
 	}
-	
+
 	public History getOperations(int frmIndex) {
 		int toIndex = operationCnt.size(); 
-		History subLog = new History(documentId, operations.subList(frmIndex, toIndex), operationCnt.subList(toIndex - 1, toIndex));
+		History subLog = new History(operations.subList(frmIndex, toIndex), operationCnt.subList(toIndex - 1, toIndex));
 		return subLog;
 	}
 }

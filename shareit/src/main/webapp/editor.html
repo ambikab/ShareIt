@@ -10,6 +10,9 @@
 <link href="css/editor.css" rel="stylesheet" media="screen">
 <!-- Codemirror stylesheets -->
 <link rel="stylesheet" href="CodeMirror/lib/codemirror.css">
+<!-- Loading plugin -->
+<link type="text/css" rel="stylesheet" href="css/waitMe.css">
+
 </head>
 <body>
 	<div class="navbar navbar-inverse navbar-fixed-top">
@@ -20,7 +23,7 @@
 					<div class="menu nav-collapse collapse">
 						<ul class="nav">
 							<li><a href="index.html">Home</a></li>
-							<li><a href="document.html">New</a></li>
+							<li><a href="new.html">New</a></li>
 							<li class="active"><a href="#">Retrieve</a></li>
 							<li><a href="team.html">About Us</a></li>
 						</ul>
@@ -41,17 +44,21 @@
 				</div>
 				<textarea id="textEditor" name="code" style="disply: none;"></textarea>
 			</div>
-
 		</div>
 	</div>
 
 	<!-- Links for javascript files. -->
 	<script src="js/jquery-2.1.3.min.js"></script>
 	<script src="bootstrap/js/bootstrap.min.js"></script>
+	<!-- Page loading scripts -->
+	<script src="js/waitMe.js"></script>
+	
 	<!-- Page related javascript files -->
 	<script src="js/properties.js"></script>
+	<script src="js/minheap.js"></script>
+	<script src="js/operations.js"></script>
 	<script src="js/editor.js"></script>
-	<script src="js/retrieveDocContents.js"></script>
+	
 	<!-- Code mirror scripts -->
 	<script src="CodeMirror/lib/codemirror.js"></script>
 	<script src="CodeMirror/mode/javascript/javascript.js"></script>
