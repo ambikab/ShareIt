@@ -1,9 +1,13 @@
 var logs = new Array(); //list of operations applied to this document so far.
 var localCache = new Array(); //list of changes pending to be sent to the server.
-var clockVal = {}; //representation of vector clocks.
+var clockVal = new Array(); //representation of vector clocks.
 var syncHead = 0; //tells how many operations are obtained from server so far.
 var clientId = null; // unique ID for this particular session.
 var docId = null; //unique id for the document this client is accessing
+
+function log(message) {
+	console.log(message);
+}
 
 $( document ).ready(function() {
 	var editor = CodeMirror.fromTextArea(document.getElementById("textEditor"), {
@@ -16,7 +20,7 @@ $( document ).ready(function() {
 	});
 	editor.setSize(900, 400);
 	//editor.foldCode(CodeMirror.Pos(40, 0));
-
+	
 	// function for fetching the contents of the given docId and also sets an unique clientID.
 	$('#docIdBtn').click(function() {
 		docId = $('#docId').val();
@@ -25,15 +29,17 @@ $( document ).ready(function() {
 			type: 'GET',
 			dataType: 'json',
 			success: function(data) {
-				clockVal = initVector(data.shareCnt);
+				log('fetching document contents from server.');
+				for (var i = 0; i <= parseInt(data.shareCnt); i++)
+					clockVal[i] = 0;
 				//set the value to the maximum of the vector returned.
-				var tempClk = {};
+				var tempClk = [];
 				jQuery.each(data.history.operationCnt, function(){
 					jQuery.each(this.vector, function(key, val){
 						tempClk[key]	= val;
 					});
 				});
-				clockVal = maxVector(tempClk, clockVal);
+				maxVector(tempClk);
 				docId = data.docId;
 				var tmpSize = 0;
 				clientId = data.activeClients;
@@ -41,18 +47,27 @@ $( document ).ready(function() {
 				var opHeap = new MinHeap(null, function(operation1, operation2) {
 					return comparator(operation1, operation2);
 				});
-				jQuery.each(data.history.operations, function(){
-					tmpSize = 1;
-					var tmpVector = {};
-					jQuery.each(this.vectors.vector, function(key, value) {
-						tmpVector[key] = value;
-					});
-					opHeap.push(new Operation(this.operation, this.index, this.text, this.clientId, tmpVector));
-				});
+				var jsonOp = data.history.operations;
+				for (var index = 0; index < jsonOp.length; index++) {
+					log(jsonOp[index]);
+					if (jsonOp[index] != null) {
+						var tmpVector = [];
+						tmpSize++;
+						var jsonVtr = jsonOp[index].vectorClk.vector;
+						for (var i = 0; i < jsonVtr.length; i++) {
+							tmpVector[i] = jsonVtr[i];
+						};
+						var tmpClk = new Vector(tmpVector);
+						opHeap.push(new Operation(jsonOp[index].type, jsonOp[index].index, jsonOp[index].character, jsonOp[index].clientId, tmpClk));
+					}
+				}
 				if (tmpSize != 0) {
+					syncHead = syncHead + tmpSize;
 					operationalTrans(opHeap);
 					applyChanges();
 				}
+				setInterval(function () {sync();}, 30000); //UNCOMMENT THIS TO BEGIN POLLING.
+				log(clockVal);
 			} ,
 			error: function() {
 				console.log('error in fetching document contets.');
@@ -68,22 +83,26 @@ $( document ).ready(function() {
 		switch(event.origin) {
 		case "+input":
 			clockVal[clientId]++;
-			operation = new Operation('i', from, text, clientId, clockVal);
+			var vector = new Vector(clockVal);
+			operation = new Operation('i', from, text, clientId, vector);
+			localCache[localCache.length] = operation;
 			break;
 		case "+delete":
 			clockVal[clientId]++;
-			operation = new Operation('i', from, text, clientId, clockVal);
+			var vector = new Vector(clockVal);
+			operation = new Operation('i', from, text, clientId, vector);
+			localCache[localCache.length] = operation;
 			break;
 		}
-		localCache[localCache.length] = operation;
+		
 	});
 
 	//-1 makes the operation swim up in the heap.
 	function comparator(operation1, operation2) {
 		if (operation1.index == operation2.index) {
-			var vectorPrio = isEquals(operation1.clockVal, operation1.clockVal);
+			var vectorPrio = isEquals(operation1.vectorClk, operation1.vectorClk);
 			if (operation1.clientId == operation2.clientId)
-				return operation1.clockVal[clientId] < operation2.clockVal[clientId] ? -1 : 1;  
+				return operation1.vectorClk[clientId] < operation2.vectorClk[clientId] ? -1 : 1;  
 			else {
 				if (vectorPrio == 0) 
 					return (operation1.clientId < operation2.clientId) ? -1 : 1;  
@@ -103,47 +122,55 @@ $( document ).ready(function() {
 
 		//Step02. Get the difference from the server.
 		var servSize = 0;
-		var params = {};
-		params['docId'] = docId;
-		params['syncHead'] = syncHead;
-		var jsonData = JSON.stringify(params);
         var vector = {};
 		//send the local history and fetch the new operations from server.
 		//forward the sync-head by the number of operations received from server.
 		//forward the vector clock by the vector clock value received from the server.
 		//apply the remote changes by transforming it locally.
 		$.ajax({
-			url: baseUrl + 'sync/',
+			url: baseUrl + 'operations/sync/',
 			type: 'POST',
 			dataType: 'json',
-			data: jsonData,
-			contentType: "application/json",
+			data: {'docId': docId, 'syncHead' : syncHead},
 			success: function(data) {
-				jQuery.each(data, function() {
-					servSize++;
-					vector = {};
-					for (var clientIds in data.clockVal)
-						vector[clientIds] = data.clockVal.clientIds;
-					opHeap.push(new Operation(data.operation, data.index, data.text, data.clientId, vector));
-				});
-				operationalTrans(opHeap);
-				applyChanges();
-				syncHead = syncHead + servSize;
-				clockVal= maxVector(vector, clockVal);
+				console.log("fetched new data from server.");
+				if ((data == undefined ) || (data == null)) {
+					sendServer();
+					return;
+				}
+				var jsonOps = data.operations;
+				for (var i = 0; i < jsonOps.length; i++) {
+					var jsonOp = jsonOps[i];
+					var tmpVector = jsonOp.vectorClk.vector.slice();
+					console.log(tmpVector);
+					opHeap.push(new Operation(jsonOp.type, jsonOp.index, jsonOp.character, jsonOp.clientId, new Vector(tmpVector)));
+				}
+				if (jsonOps.length != 0) {
+					operationalTrans(opHeap);
+					applyChanges();
+					syncHead = syncHead + jsonOps.length;
+					maxVector(vector);
+				}				
 				sendServer();
 			}
 		});
 	}
 
 	function sendServer() {
+		log("sending local data to server");
 		//Step04. send the local operations to the server.
 		var localSize = localCache.length;
-		jsonData = JSON.stringify(localCache.splice(0, localSize));
+		if (localSize == 0) {
+			log("no more operations here.");
+			return 0;
+		}
+		var operations = {'docId' : docId , 'operations': localCache.splice(0, localSize)};
 		$.ajax({
-			url: baseUrl + 'add/',
+			url: baseUrl + 'operations/add/',
 			type: 'POST',
 			dataType: 'json',
-			data: jsonData,
+			contentType:'application/json',
+			data: JSON.stringify(operations),
 			success: function(data) {
 				console.log('success in sync-ing data to the server.');
 			},
@@ -155,17 +182,25 @@ $( document ).ready(function() {
 	}
 	
 	//update the text in the editor.
-	function applychanges() {
+	function applyChanges() {
+		log('updating the editor');
 		text = new Array();
 		var i = 0;
 		for (i = 0; i < logs.length; i++) {
-			if (logs[i].operation == 'i') {
-				text[i] = logs[i].text;  
+			console.log(logs[i]);
+			if (logs[i].type == 'i') {
+				log('inserting' + logs[i].character);
+				text[i] = logs[i].character;  
 			} else {
+				log('deleting text at ' + i);
 				text[i] = ' ';
 			};
 		};
-		editor.setValue(text.toString());
+		var contents = '';
+		for (var i = 0;i < text.length; i++) {
+			contents = contents + text[i];
+		}
+		editor.setValue(contents);
 	};
 
 	//returns 1 if operation1 is of higher priority than operation2.
@@ -177,7 +212,7 @@ $( document ).ready(function() {
 		if (operation1.index < operation2.index) return 1;
 		else if (operation1.index > operation2.index) return -1;
 		else {
-			var vectorPrio = isEquals(operation1.clockVal, operation1.clockVal);
+			var vectorPrio = isEquals(operation1.vectorClk, operation1.vectorClk);
 			if (operation1.clientId == operation2.clientId) {
 				if (vectorPrio == 0) return 0;
 				return vectorPrio == 1 ? 2 : -2; 
@@ -234,11 +269,10 @@ $( document ).ready(function() {
 	};
 
 	//returns a new vector populated with the values:- maximum of vector1 and vector2
-	function maxVector(vector1, vector2) {
-		var tmpVector = {};
+	function maxVector(vector1) {
+		if ((vector1 == undefined) || (vector1 == null)) return;
 		for (var cId in vector1) 
-			tmpVector[cId] = max(vector1[cId], vector2[cId]);
-		return tmpVector;
+			clockVal[cId] = max(clockVal[cId], vector1[cId]);
 	}
 
 	function max(val1, val2) {
@@ -248,9 +282,9 @@ $( document ).ready(function() {
 
 	//returns a vector with all the clock values intitalized to zero.
 	function initVector(size) {
+		var vector1 = new Array();
 		for (var i = 1; i <= size; i++)
-			clockVal[i] = 0;
+			vector1[i] = 0;
+		return vector1;
 	};
-
-	setInterval(sync(), 1000); //UNCOMMENT THIS TO BEGIN POLLING.
 });

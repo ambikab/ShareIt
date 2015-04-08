@@ -1,10 +1,14 @@
 package org.edu.comp512.model;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
 /**
  * Model to represent every single operation in the logs.
  * @author AMBIKA BABUJI
  *
  */
+
+@XmlRootElement
 public class Operation {
 
 	char type;
@@ -12,26 +16,30 @@ public class Operation {
 	int index;
 
 	int clientId;
+	
+	VectorClocks vectorClk;
 
-	VectorClocks vectors;
+	char character;
 
-	char text;
-
+	public Operation() {
+		
+	}
+	
 	public Operation(char operation, int index, int clientId, VectorClocks vectors, char text) {
 		super();
 		this.type = operation;
 		this.index = index;
 		this.clientId = clientId;
-		this.vectors = vectors;
-		this.text = text;
+		this.vectorClk = vectors;
+		this.character = text;
 	}
 
-	public char getOperation() {
+	public char getType() {
 		return type;
 	}
 
-	public void setOperation(char operation) {
-		this.type = operation;
+	public void setType(char type) {
+		this.type = type;
 	}
 
 	public int getIndex() {
@@ -50,20 +58,20 @@ public class Operation {
 		this.clientId = clientId;
 	}
 
-	public VectorClocks getVectors() {
-		return vectors;
+	public VectorClocks getVectorClk() {
+		return vectorClk;
 	}
 
-	public void setVectors(VectorClocks vectors) {
-		this.vectors = vectors;
+	public void setVectorClk(VectorClocks vectorClk) {
+		this.vectorClk = vectorClk;
 	}
 
-	public char getText() {
-		return text;
+	public char getCharacter() {
+		return character;
 	}
 
-	public void setText(char text) {
-		this.text = text;
+	public void setCharacter(char character) {
+		this.character = character;
 	}
 
 }

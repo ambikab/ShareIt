@@ -1,51 +1,67 @@
 package org.edu.comp512.model;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlTransient;
 
 /**
  * Representation of vector clocks.
  * @author AMBIKA BABUJI
  *
  */
+
+@XmlRootElement
 public class VectorClocks {
 
 	//represents the vector clock.
-	HashMap<Integer, Integer> vector;
+	@XmlElement
+	Integer[] vector;
+
+	public VectorClocks() {
+
+	}
 
 	/**
 	 * 
 	 */
-	public VectorClocks() {
-		vector = new HashMap<Integer, Integer>();
+	public VectorClocks(int size) {
+		vector = new Integer[size];
 	}
 
 	/**
 	 * 
 	 * @param vector
 	 */
-	public VectorClocks(HashMap<Integer, Integer> vector) {
+	public VectorClocks(Integer[] vector) {
 		super();
 		this.vector = vector;
 	}
 
-	public HashMap<Integer, Integer> getVector() {
+	public Integer[] getVector() {
 		return vector;
 	}
 
 
-	public void setVector(HashMap<Integer, Integer> vector) {
+	public void setVector(Integer[] vector) {
 		this.vector = vector;
 	}
-	
+
+	/**
+	 * Return the vector size.
+	 * @return
+	 */
+	@XmlTransient
+	public int getVectorSize() {
+		return this.vector.length;
+	}
+
 	/**
 	 * Adds a new client's clock value to existing vector.
 	 * @param clientId
 	 * @param clockVal
 	 */
-	public void setClockVal(Integer clientId, int clockVal) {
-		this.vector.put(clientId, clockVal);
+	public void setClockVal(int clientId, int clockVal) {
+		this.vector[clientId] = clockVal;
 	}
 
 	/**
@@ -53,8 +69,8 @@ public class VectorClocks {
 	 * @param clientId
 	 * @return
 	 */
-	public int getClockVal(String clientId) {
-		return this.vector.get(clientId);
+	public int getClockVal(int clientId) {
+		return this.vector[clientId];
 	}
 
 	/**
@@ -64,11 +80,11 @@ public class VectorClocks {
 	 * @return
 	 */
 	public int compareTo(VectorClocks vector1, VectorClocks vector2) {
-		Set<Integer> keys1 = vector1.vector.keySet();
+		int keys = vector1.getVectorSize();
 		boolean great = false, less = false;
-		for (int clientId : keys1) {
-			int val1 = vector1.vector.containsKey(clientId) ? vector1.vector.get(clientId) : 0;
-			int val2 = vector2.vector.containsKey(clientId) ? vector2.vector.get(clientId) : 0;
+		for (int i = 0; i <  keys; i++) {
+			int val1 = vector1.getClockVal(i);
+			int val2 = vector2.getClockVal(i);
 			if (val1 > val2) great = true;
 			if (val1 < val2) less = true;
 		}
@@ -84,27 +100,14 @@ public class VectorClocks {
 	 * @return
 	 */
 	public VectorClocks getMaxVector(VectorClocks vector1) {
-		Set<Integer> keys1 = vector1.vector.keySet();
-		HashMap<Integer, Integer> maxMap = new HashMap<Integer, Integer>();
-		for (int clientId : keys1) {
-			int val1 = vector1.vector.containsKey(clientId) ? vector1.vector.get(clientId) : 0;
-			int val2 = this.vector.containsKey(clientId) ? this.vector.get(clientId) : 0;
+		int size = vector1.getVectorSize();
+		Integer[] maxMap = new Integer[size];
+		for (int i = 0; i < size; i++) {
+			int val1 = vector1.getClockVal(i);
+			int val2 = this.getClockVal(i);
 			int max = val1 > val2 ? val1 : val2;
-			maxMap.put(clientId, max);
+			maxMap[i] = max;
 		}
 		return new VectorClocks(maxMap);
-	}
-	
-	/**
-	 * 
-	 * @param keySet1
-	 * @param keySet2
-	 * @return
-	 */
-	public static Set<Integer> mergeKeys(Set<Integer> keySet1, Set<Integer> keySet2) {
-		Set<Integer> keySet = new HashSet<Integer>();
-		for (int key : keySet1) keySet.add(key);
-		for (int key : keySet2) keySet.add(key);
-		return keySet;
 	}
 }

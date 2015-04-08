@@ -43,14 +43,15 @@ public class History {
 		operations.add(newOp);
 		VectorClocks curMax = null;
 		if (operationCnt.size() == 0)
-			curMax = (newOp.vectors);
+			curMax = (newOp.vectorClk);
 		else
-			curMax = newOp.vectors.getMaxVector(operationCnt.get(operationCnt.size() - 1));
+			curMax = newOp.vectorClk.getMaxVector(operationCnt.get(operationCnt.size() - 1));
 		operationCnt.add(curMax);
 	}
 
 	public History getOperations(int frmIndex) {
 		int toIndex = operationCnt.size(); 
+		if (frmIndex >= toIndex) return null;
 		History subLog = new History(operations.subList(frmIndex, toIndex), operationCnt.subList(toIndex - 1, toIndex));
 		return subLog;
 	}

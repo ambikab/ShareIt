@@ -2,14 +2,11 @@ $( document ).ready(function() {
 	
 	//create a new document ID.
 	$('#createBtn').click(function(e) {
-		var data = {};
-		data['count'] = $("#shareCnt").val();
-		var jsonData = JSON.stringify(data);
 		$.ajax({
 			url: baseUrl + 'editor/new' ,
 			type: 'POST',
 			dataType: 'json',
-			data: jsonData,
+			data: {'count' : $("#shareCnt").val()},
 			success: function(data) {
 				addAlert('success', 'You can access your document using ID:' + data.docId);
 			},
