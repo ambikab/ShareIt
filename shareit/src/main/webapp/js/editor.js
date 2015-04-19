@@ -1,4 +1,4 @@
-var logs = new Array(); //list of operations applied to this document so far.
+var logs = new Array(); //History buffer. Operations in this HB can be run to reproduce the editor's content.
 var localCache = new Array(); //list of changes pending to be sent to the server.
 var clockVal = new Array(); //representation of vector clocks.
 var syncHead = 0; //tells how many operations are obtained from server so far.
@@ -6,7 +6,7 @@ var clientId = null; // unique ID for this particular session.
 var docId = null; //unique id for the document this client is accessing
 
 function log(message) {
-	console.log(message);
+	//console.log(message);
 }
 
 $( document ).ready(function() {
@@ -29,7 +29,7 @@ $( document ).ready(function() {
 			type: 'GET',
 			dataType: 'json',
 			success: function(data) {
-				log('fetching document contents from server.');
+				//initializes a vector of size data.shareCnt.
 				for (var i = 0; i <= parseInt(data.shareCnt); i++)
 					clockVal[i] = 0;
 				//set the value to the maximum of the vector returned.
@@ -39,10 +39,10 @@ $( document ).ready(function() {
 						tempClk[key]	= val;
 					});
 				});
-				maxVector(tempClk);
-				docId = data.docId;
+				maxVector(tempClk); //updates the site's vector clock.
+				docId = data.docId; //initializes the document id.
 				var tmpSize = 0;
-				clientId = data.activeClients;
+				clientId = data.activeClients; //initializes the client-id for this session.
 				//extract the operations so far and build the opHeap.
 				var opHeap = new MinHeap(null, function(operation1, operation2) {
 					return comparator(operation1, operation2);
@@ -51,13 +51,8 @@ $( document ).ready(function() {
 				for (var index = 0; index < jsonOp.length; index++) {
 					log(jsonOp[index]);
 					if (jsonOp[index] != null) {
-						var tmpVector = [];
 						tmpSize++;
-						var jsonVtr = jsonOp[index].vectorClk.vector;
-						for (var i = 0; i < jsonVtr.length; i++) {
-							tmpVector[i] = jsonVtr[i];
-						};
-						var tmpClk = new Vector(tmpVector);
+						var tmpClk = jsonOp.vectorClk.vector.slice();
 						opHeap.push(new Operation(jsonOp[index].type, jsonOp[index].index, jsonOp[index].character, jsonOp[index].clientId, tmpClk));
 					}
 				}
@@ -115,7 +110,7 @@ $( document ).ready(function() {
 
 	//set up periodical polling for sync and update text.
 	function sync() {
-		//Step01: Set up heap. TODO: validate the comparator.
+		//Step01: Set up heap.
 		var opHeap =  new MinHeap(null, function(operation1, operation2) {
 			return comparator(operation1, operation2);
 		});
@@ -181,6 +176,27 @@ $( document ).ready(function() {
 		});
 	}
 	
+	function operationalTrans(opHeap) {
+		while (opHeap.size() > 0) {
+			var serverOp = opHeap.pop();
+			var len = logs.length;
+			for (var i = 0; i < len; i++) {
+				var result = transformation(serverOp, logs[i]);
+				//specifies serverOp goes before the log operation
+				if ((result == 1) & (i == len - 1)) logs[len] = serverOp;
+				if (result == -1) {
+					var tempHist = logs.slice(0, i-1);
+					tempHist.push(serverOp);
+					tempHist.concat(logs.slice(i, len));
+					logs = tempHist;
+					break;
+				} else if (result == 0) break;
+				else if (result == 2) logs[i] = serverOp; //write test scripts to validate.
+			}
+			if (len == 0) logs[0] = serverOp;
+		}
+	}
+	
 	//update the text in the editor.
 	function applyChanges() {
 		log('updating the editor');
@@ -190,7 +206,8 @@ $( document ).ready(function() {
 			console.log(logs[i]);
 			if (logs[i].type == 'i') {
 				log('inserting' + logs[i].character);
-				text[i] = logs[i].character;  
+				text[i] = logs[i].character;
+				logs[i].index = i;
 			} else {
 				log('deleting text at ' + i);
 				text[i] = ' ';
@@ -218,38 +235,9 @@ $( document ).ready(function() {
 				return vectorPrio == 1 ? 2 : -2; 
 			} else {
 				if (vectorPrio == 0) return (operation1.clientId < operation2.clientId) ? 1 : -1;
-
-			}
-		}
+			};
+		};
 	}
-
-	//applies the changes(from server) to the local logs.
-	//server changes are stored in heap and local changes are stored in stack.
-	function operationalTrans(opHeap) {
-		var head = 0;
-		while (opHeap.size() > 0) {
-			if (head >= logs.length) break;
-			var serverOp = opHeap.pop();
-			var priority = getPriority(serverOp, logs[head]);
-			if (serverOp.index == logs[head].index) {
-				if (priority == 1) {
-					logs[head].index++;
-					var tempOp = logs.splice(head, 0, serverOp);
-					opHeap.push(tempOp);
-				} else if (priority == -1) {
-					serverOp.index++;
-					opHeap.push(serverOp);
-				} else
-					continue;
-			} else if (serverOp.index > logs[head].index)
-				head++;
-			else 
-				head--;
-		}
-		while(opHeap.size() > 0) {
-			logs[logs.length] = opHeap.pop();
-		}
-	};
 
 	//if vector1 is equal to vector2 returns 0;
 	// vector1 > vector2 return 1
@@ -280,11 +268,37 @@ $( document ).ready(function() {
 		return val2;
 	};
 
-	//returns a vector with all the clock values intitalized to zero.
+	//returns a vector with all the clock values initialized to zero.
 	function initVector(size) {
 		var vector1 = new Array();
 		for (var i = 1; i <= size; i++)
 			vector1[i] = 0;
 		return vector1;
 	};
+	
+	//transforms op1 with respect to op2.
+	//returns -1 if op1 has to be inserted before op2.
+	//returns 1 if op1 comes after op2.
+	function transformation(op1, op2) {
+		if (op1.index < op2.index) return -1;
+		if (op1.index > op2.index) return 1;
+		var vectorPrio = isEquals(op1.vectorClk, op2.vectorClk);
+		if (vectorPrio == 0) {
+			if (op1.clientId < op2.clientId) return -1;
+			else if (op1.clientId > op2.clientId) return 1;
+			else return 0; //discard this operation.
+		} else if (vectorPrio == -1) return 2;
+		else return -2;
+	}
+	
+	function comparator(op1, op2) {
+		var vectorPrio = isEquals(op1.vectorClk, op2.vectorClk);
+		if (vectorPrio == 1) return 1;
+		if (vectorPrio == -1) return -1;
+		if(op1.index < op2.index) return 1;
+		if(op1.index > op2.index) return -1;
+		if(op1.clientId < op2.clientId) return -1;
+		return 1;
+	};
+
 });
