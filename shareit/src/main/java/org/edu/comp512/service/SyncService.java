@@ -39,10 +39,12 @@ public class SyncService {
 	@Consumes(MediaType.APPLICATION_JSON)
 	public void addOperations(Operations operations) throws JsonParseException, JsonMappingException, IOException {
 		String docId = operations.getDocId();
-		System.out.println("Adding " + operations.getOperations().size() + " operations to document " + docId);
+		for (Operation newop : operations.getOperations()) //Only for debugging purpose. remove after debugging.
+			System.out.println("Adding new operation from " + newop.getClientId() + " at index " 
+							+ newop.getIndex() + " for character " + newop.getCharacter());
+		//System.out.println("Adding " + operations.getOperations().size() + " operations to document " + docId);
 		History history = State.getDocHistory(docId);
-		for (Operation operation : operations.getOperations())
-			history.addOperation(operation);
+		history.addOperations(operations.getOperations());
 	}		
 
 }

@@ -1,6 +1,7 @@
 package org.edu.comp512.model;
 
 import java.util.List;
+import java.util.Vector;
 
 /**
  * Represents log entry for a single document.
@@ -9,31 +10,26 @@ import java.util.List;
  */
 public class History {
 
-	List<Operation> operations;
+	Vector<Operation> operations;
 
-	List<VectorClocks> operationCnt;
+	//Vector<VectorClocks> operationCnt;
 
-	public History(List<Operation> operations,
-			List<VectorClocks> operationCnt) {
+	public History(Vector<Operation> operations) {
 		super();
 		this.operations = operations;
-		this.operationCnt = operationCnt;
+		//this.operationCnt = operationCnt;
 	}
 
-	public List<Operation> getOperations() {
+	public Vector<Operation> getOperations() {
 		return operations;
 	}
 
-	public void setOperations(List<Operation> operations) {
+	public void setOperations(Vector<Operation> operations) {
 		this.operations = operations;
 	}
 
-	public List<VectorClocks> getOperationCnt() {
-		return operationCnt;
-	}
-
-	public void setOperationCnt(List<VectorClocks> operationCnt) {
-		this.operationCnt = operationCnt;
+	public void addOperations(List<Operation> newOps) {
+		operations.addAll(newOps);
 	}
 
 	/**
@@ -41,18 +37,16 @@ public class History {
 	 */
 	public synchronized void addOperation(Operation newOp) {
 		operations.add(newOp);
-		VectorClocks curMax = null;
-		if (operationCnt.size() == 0)
-			curMax = (newOp.vectorClk);
-		else
-			curMax = newOp.vectorClk.getMaxVector(operationCnt.get(operationCnt.size() - 1));
-		operationCnt.add(curMax);
 	}
 
 	public History getOperations(int frmIndex) {
-		int toIndex = operationCnt.size(); 
+		int toIndex = operations.size(); 
 		if (frmIndex >= toIndex) return null;
-		History subLog = new History(operations.subList(frmIndex, toIndex), operationCnt.subList(toIndex - 1, toIndex));
+		Vector<Operation> subOperations = new Vector<Operation>();
+		List<Operation> subList1 = operations.subList(frmIndex, toIndex);
+		for (Operation operation : subList1)
+			subOperations.add(operation);
+		History subLog = new History(subOperations);
 		return subLog;
 	}
 }

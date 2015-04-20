@@ -4,6 +4,7 @@ var clockVal = new Array(); //representation of vector clocks.
 var syncHead = 0; //tells how many operations are obtained from server so far.
 var clientId = null; // unique ID for this particular session.
 var docId = null; //unique id for the document this client is accessing
+var clientCnt = 0;
 
 function log(message) {
 	//console.log(message);
@@ -20,8 +21,18 @@ $( document ).ready(function() {
 	});
 	editor.setSize(900, 400);
 	//editor.foldCode(CodeMirror.Pos(40, 0));
-	
-	// function for fetching the contents of the given docId and also sets an unique clientID.
+
+	//return an array with max of vector1, vector2.
+	function getMax(vector1, vector2) {
+		if ((vector1 == undefined) || (vector1 == null)) return;
+		if ((vector2 == undefined) || (vector2 == null)) return;
+		var vector3 = [];
+		for (var i = 0; i < vector1.length; i++)
+			vector3[i] = max(vector1[i], vector2[i]);
+		return vector3.slice(0);
+	}
+
+	//function for fetching the contents of the given docId and also sets an unique clientID.
 	$('#docIdBtn').click(function() {
 		docId = $('#docId').val();
 		$.ajax({
@@ -30,39 +41,40 @@ $( document ).ready(function() {
 			dataType: 'json',
 			success: function(data) {
 				//initializes a vector of size data.shareCnt.
-				for (var i = 0; i <= parseInt(data.shareCnt); i++)
+				var tempMax = [];
+				clientCnt = data.shareCnt;
+				for (var i = 0; i < parseInt(clientCnt); i++) {
 					clockVal[i] = 0;
-				//set the value to the maximum of the vector returned.
-				var tempClk = [];
-				jQuery.each(data.history.operationCnt, function(){
-					jQuery.each(this.vector, function(key, val){
-						tempClk[key]	= val;
-					});
-				});
-				maxVector(tempClk); //updates the site's vector clock.
+					tempMax[i] = 0; //temp vector.
+				}
+
 				docId = data.docId; //initializes the document id.
 				var tmpSize = 0;
 				clientId = data.activeClients; //initializes the client-id for this session.
+
 				//extract the operations so far and build the opHeap.
 				var opHeap = new MinHeap(null, function(operation1, operation2) {
 					return comparator(operation1, operation2);
 				});
+
 				var jsonOp = data.history.operations;
 				for (var index = 0; index < jsonOp.length; index++) {
 					log(jsonOp[index]);
 					if (jsonOp[index] != null) {
 						tmpSize++;
-						var tmpClk = jsonOp.vectorClk.vector.slice();
+						console.log(jsonOp);
+						var tmpClk = jsonOp[index].vectorClk.vector.slice();
+						tempMax = getMax(tempMax, tmpClk);
 						opHeap.push(new Operation(jsonOp[index].type, jsonOp[index].index, jsonOp[index].character, jsonOp[index].clientId, tmpClk));
 					}
 				}
 				if (tmpSize != 0) {
-					syncHead = syncHead + tmpSize;
-					operationalTrans(opHeap);
-					applyChanges();
+					maxVector(tempMax); //update the vector clk.
+					syncHead = syncHead + tmpSize; //move the sync head to include the new operations.
+					operationalTrans(opHeap); //transformation to hte buffer is made.
+					applyChanges(); //apply the transformed changes to the editor.
 				}
-				setInterval(function () {sync();}, 30000); //UNCOMMENT THIS TO BEGIN POLLING.
-				log(clockVal);
+				setInterval(function () {sync();}, 15000); //UNCOMMENT THIS TO BEGIN POLLING.
 			} ,
 			error: function() {
 				console.log('error in fetching document contets.');
@@ -77,36 +89,20 @@ $( document ).ready(function() {
 		var operation = null;
 		switch(event.origin) {
 		case "+input":
-			clockVal[clientId]++;
-			var vector = new Vector(clockVal);
-			operation = new Operation('i', from, text, clientId, vector);
+			clockVal[clientId] = clockVal[clientId] + 1;
+			var opVectorClock = new Vector(clockVal);
+			operation = new Operation('i', from, text, clientId, opVectorClock);
+			console.log(operation);
 			localCache[localCache.length] = operation;
 			break;
-		case "+delete":
-			clockVal[clientId]++;
-			var vector = new Vector(clockVal);
-			operation = new Operation('i', from, text, clientId, vector);
+		case "+delete": //TODO: should be modified for del followed by insert. 
+			clockVal[clientId] = clockVal[clientId] + 1;
+			var opVectorClock = new Vector(clockVal);
+			operation = new Operation('i', from, text, clientId, opVectorClock);
 			localCache[localCache.length] = operation;
 			break;
 		}
-		
 	});
-
-	//-1 makes the operation swim up in the heap.
-	function comparator(operation1, operation2) {
-		if (operation1.index == operation2.index) {
-			var vectorPrio = isEquals(operation1.vectorClk, operation1.vectorClk);
-			if (operation1.clientId == operation2.clientId)
-				return operation1.vectorClk[clientId] < operation2.vectorClk[clientId] ? -1 : 1;  
-			else {
-				if (vectorPrio == 0) 
-					return (operation1.clientId < operation2.clientId) ? -1 : 1;  
-				else 
-					return vectorPrio;
-			}
-		} else  
-			return operation1.index < operation2.index ? -1 : 1;
-	}
 
 	//set up periodical polling for sync and update text.
 	function sync() {
@@ -115,9 +111,14 @@ $( document ).ready(function() {
 			return comparator(operation1, operation2);
 		});
 
-		//Step02. Get the difference from the server.
-		var servSize = 0;
-        var vector = {};
+		//Step02: send local operations to the server.
+		sendServer();
+
+		//Step03. Get the difference from the server.
+		var tempMax = [];
+		for (var i = 0; i < parseInt(clientCnt); i++) {
+			tempMax[i] = 0; //temp vector.
+		}
 		//send the local history and fetch the new operations from server.
 		//forward the sync-head by the number of operations received from server.
 		//forward the vector clock by the vector clock value received from the server.
@@ -128,25 +129,26 @@ $( document ).ready(function() {
 			dataType: 'json',
 			data: {'docId': docId, 'syncHead' : syncHead},
 			success: function(data) {
-				console.log("fetched new data from server.");
 				if ((data == undefined ) || (data == null)) {
-					sendServer();
+					//sendServer();
 					return;
 				}
+				console.log("fetched new data from server.");
 				var jsonOps = data.operations;
 				for (var i = 0; i < jsonOps.length; i++) {
 					var jsonOp = jsonOps[i];
 					var tmpVector = jsonOp.vectorClk.vector.slice();
-					console.log(tmpVector);
-					opHeap.push(new Operation(jsonOp.type, jsonOp.index, jsonOp.character, jsonOp.clientId, new Vector(tmpVector)));
+					tempMax = getMax(tempMax, tmpVector);
+					console.log(jsonOps[i]);
+					console.log(tempMax);
+					opHeap.push(new Operation(jsonOp.type, jsonOp.index, jsonOp.character, jsonOp.clientId, new Vector(tempMax)));
 				}
 				if (jsonOps.length != 0) {
-					operationalTrans(opHeap);
-					applyChanges();
 					syncHead = syncHead + jsonOps.length;
-					maxVector(vector);
+					maxVector(tempMax); //update the site's clock to include operations from remote sites as well.
+					operationalTrans(opHeap); //transform the remote operations before applying
+					applyChanges(); // apply changes to the heap.
 				}				
-				sendServer();
 			}
 		});
 	}
@@ -175,41 +177,18 @@ $( document ).ready(function() {
 			}
 		});
 	}
-	
-	function operationalTrans(opHeap) {
-		while (opHeap.size() > 0) {
-			var serverOp = opHeap.pop();
-			var len = logs.length;
-			for (var i = 0; i < len; i++) {
-				var result = transformation(serverOp, logs[i]);
-				//specifies serverOp goes before the log operation
-				if ((result == 1) & (i == len - 1)) logs[len] = serverOp;
-				if (result == -1) {
-					var tempHist = logs.slice(0, i-1);
-					tempHist.push(serverOp);
-					tempHist.concat(logs.slice(i, len));
-					logs = tempHist;
-					break;
-				} else if (result == 0) break;
-				else if (result == 2) logs[i] = serverOp; //write test scripts to validate.
-			}
-			if (len == 0) logs[0] = serverOp;
-		}
-	}
-	
+
 	//update the text in the editor.
 	function applyChanges() {
 		log('updating the editor');
 		text = new Array();
 		var i = 0;
 		for (i = 0; i < logs.length; i++) {
-			console.log(logs[i]);
+			//console.log(logs[i]);
 			if (logs[i].type == 'i') {
-				log('inserting' + logs[i].character);
 				text[i] = logs[i].character;
 				logs[i].index = i;
 			} else {
-				log('deleting text at ' + i);
 				text[i] = ' ';
 			};
 		};
@@ -275,8 +254,8 @@ $( document ).ready(function() {
 			vector1[i] = 0;
 		return vector1;
 	};
-	
-	//transforms op1 with respect to op2.
+
+	/*//transforms op1 with respect to op2.
 	//returns -1 if op1 has to be inserted before op2.
 	//returns 1 if op1 comes after op2.
 	function transformation(op1, op2) {
@@ -289,8 +268,8 @@ $( document ).ready(function() {
 			else return 0; //discard this operation.
 		} else if (vectorPrio == -1) return 2;
 		else return -2;
-	}
-	
+	}*/
+
 	function comparator(op1, op2) {
 		var vectorPrio = isEquals(op1.vectorClk, op2.vectorClk);
 		if (vectorPrio == 1) return 1;
@@ -301,4 +280,72 @@ $( document ).ready(function() {
 		return 1;
 	};
 
+	function operationalTrans(opHeap) {
+		while (opHeap.size() > 0) {
+			var currentOp = opHeap.pop();
+			var len = logs.length;
+			if (len == 0) {
+				logs.push(currentOp);
+			} 
+			else {
+				var opHandled = false;
+				for (var i = 0; i < len; i++) {
+					// compare currOp to op in log
+					// case 1 currOp is at a index > currlogOp
+					if (currentOp.index > logs[i].index) {
+						continue;
+					}
+					// case 2 currOp is at a index < currlogOp
+					else if ( currentOp.index < logs[i].index ) {
+						// example current op index 2 log[i] index is 4
+						// handle and break
+						opHandled = true;
+						var tempLog = logs.slice(0, i - 1); // should handle logs of size 1
+						tempLog.push(currentOp);
+						tempLog.concat(logs.slice(i));
+						logs = tempLog.slice(0);
+						break;
+					}
+					// case 3 currOp is at a index = currlogOp
+					else {
+						// concurrent Operations at same Index
+						var result = isEquals(currentOp.vectorClk, logs[i].vectorClk);
+						console.log(result);
+						if ( result == 0 ) { 
+							// will be handled in the next case
+							if (currentOp.clientId > logs[i].clientId) 
+								continue;
+							else if( currentOp.clientId < logs[i].clientId ) {
+								// insert before current log op and break
+								opHandled = true;
+								var tempLog = logs.slice(0, i - 1); // should handle logs of size 1
+								tempLog.push(currentOp);
+								tempLog.concat(logs.slice(i));
+								logs = tempLog.slice(0);
+								break;
+							}
+							else { // same client and concurrent is not possible at all 
+								console.log("Duplicate operation encountered..");
+								opHandled = true;
+								break;
+							}
+						} else { // non concurrent operations at same Index - something has to be replaced
+							if (result == 1) { // current op happened later than logs operation at current index
+								// replace log op
+								logs[i] = currentOp;
+							}
+							else {
+								// current Op is history ignore it				
+							}
+							opHandled = true;
+							break;
+						}
+					}
+				} // end for
+				if (!opHandled) {
+					logs.push(currentOp);
+				}
+			} // end else
+		} // end while
+	}
 });

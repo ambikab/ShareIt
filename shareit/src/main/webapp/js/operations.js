@@ -18,8 +18,8 @@ function Operation(type, index, character, clientId, vectorClk) {
 	this.vectorClk = vectorClk;
 }
 
-function Vector(vector) {
-	this.vector = vector;
+function Vector(vector1) {
+	this.vector = vector1.slice(0);
 }
 
 /** var heappq = new MinHeap(null, function(operation1, operation2) {
@@ -34,3 +34,18 @@ function Vector(vector) {
 	}
 }); **/
 
+//-1 makes the operation swim up in the heap.
+/*function comparator(operation1, operation2) {
+	if (operation1.index == operation2.index) {
+		var vectorPrio = isEquals(operation1.vectorClk, operation1.vectorClk);
+		if (operation1.clientId == operation2.clientId)
+			return operation1.vectorClk[clientId] < operation2.vectorClk[clientId] ? -1 : 1;  
+		else {
+			if (vectorPrio == 0) 
+				return (operation1.clientId < operation2.clientId) ? -1 : 1;  
+			else 
+				return vectorPrio;
+		}
+	} else  
+		return operation1.index < operation2.index ? -1 : 1;
+}*/

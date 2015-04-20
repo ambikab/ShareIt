@@ -1,6 +1,6 @@
 package org.edu.comp512.model;
 
-import java.util.ArrayList;
+import java.util.Vector;
 
 /**
  * Representation of a shared editor. 
@@ -24,7 +24,7 @@ public class Document {
 		super();
 		this.docId = docId;
 		this.shareCnt = shareCnt;
-		this.history = new History(new ArrayList<Operation>(), new ArrayList<VectorClocks>());
+		this.history = new History(new Vector<Operation>());
 		this.activeClients = 0;
 	}
 
