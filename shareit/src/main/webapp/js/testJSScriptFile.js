@@ -211,7 +211,7 @@ var opHeap =  new MinHeap(null, function(operation1, operation2) {
 	});
 		
 	function comparator(op1, op2) {
-		var vectorPrio = isEquals(op1.vectorClk, op2.vectorClk);
+		var vectorPrio = isEquals(op1.vectorClk.vector, op2.vectorClk.vector);
 		if (vectorPrio == 1) return 1;
 		if (vectorPrio == -1) return -1;
 		if(op1.index < op2.index) return -1;
@@ -252,135 +252,122 @@ function Vector(vector) {
 	this.vector = vector;
 }
 
-
-function operationTransTest(opHeap) {
-    while (opHeap.size() > 0) {
-        var currentOp = opHeap.pop();
-        var len = logs.length;
-        if (len == 0) {
-            logs.push(currentOp);
-        } else {
-            var opHandled = false;
-            for (var i = 0; i < len; i++) {
-                // compare currOp to op in log
-                // case 1 currOp is at a index > currlogOp
-                if (currentOp.index > logs[i].index) {
-                    continue;
-                }
-                // case 2 currOp is at a index < currlogOp
-                else if (currentOp.index < logs[i].index) {
-                    // example current op index 2 log[i] index is 4
-                    // handle and break
-                    opHandled = true;
-                    var tempLog = logs.slice(0, i - 1); // should handle logs of size 1
-                    tempLog.append(currentOp);
-                    tempLog.concat(logs.slice(i));
-                    logs = tempLog.slice(0);
-                    break;
-                }
-                // case 3 currOp is at a index = currlogOp
-                else {
-                    // concurrent Operations at same Index
-					var vClkLen = currentOp.vectorClk.length;
-					var greater = false;
-					var lesser = false;
-					for(var clkIndex = 0; clkIndex < vClkLen; clkIndex++) {
-						if( currOp.vectorClk[clkIndex] > logs[i].vectorClk[clkIndex] ) {
-							greater = true;
-						}
-						if( currOp.vectorClk[clkIndex] < logs[i].vectorClk[clkIndex] ) {
-							lesser = true;
-						}
-					}
-					var result = 0;
-					if ( greater && lesser) result = 0;
-					else if (greater) result = 1;
-					else if (lesser) result = -1;
-					else result = 0;
-					
-					console.log(result);
-                    if ( result == 0 ) { 
-                        // will be handled in the next case
-                        if (currentOp.clientId > logs[i].clientId) {
-                            continue;
-                        }
-						else if(currentOp.clientId < logs[i].clientId) {
-							opHandled = true;
+function operationalTrans(opHeap) {
+		while (opHeap.size() > 0) {
+			var currentOp = opHeap.pop();
+			var len = logs.length;
+			var opHandled = false;
+			if (len == 0) { // for the very first operations.
+				console.log('logs are recreated.');
+				logs.push(currentOp);
+				continue;
+			}
+			for (var i = 0; i < len; i++) {
+				// case 1 currOp is at a index > currlogOp
+				if (currentOp.index > logs[i].index)
+					continue;
+				// case 2 currOp is at a index < currlogOp:::example current op index 2 log[i] index is 4
+				else if ( currentOp.index < logs[i].index ) { // handle and break
+					opHandled = true;
+					var tempLog = logs.slice(0, i - 1);
+					tempLog.push(currentOp);
+					tempLog = tempLog.concat(logs.slice(i));
+					logs = tempLog.slice(0);
+					break;
+				}
+				// case 3 currOp is at a index = currlogOp
+				else {
+					// concurrent Operations at same Index
+					var result = isEquals(currentOp.vectorClk.vector, logs[i].vectorClk.vector);
+					if ( result == 0 ) { 
+						if (currentOp.clientId > logs[i].clientId) 
+							continue;
+						else if( currentOp.clientId < logs[i].clientId ) {
 							// insert before current log op and break
 							opHandled = true;
 							var tempLog = logs.slice(0, i - 1); // should handle logs of size 1
-							tempLog.append(currentOp);
-							tempLog.concat(logs.slice(i));
+							tempLog.push(currentOp);
+							tempLog = tempLog.concat(logs.slice(i));
 							logs = tempLog.slice(0);
 							break;
 						}
 						else { // same client and concurrent is not possible at all 
-							console.log("SOME THING might be TERRIBLY WRONG.. can be a duplicate");
+							console.log("Duplicate operation Ignoring operation");
+							console.log(currentOp);
 							opHandled = true;
 							break;
 						}
-                    }
-					else { // non concurrent operations at same Index - something has to be replaced
-						if (result == 1) { // current op happenned later than logs operation at current index
-							// replace log op
-							logs[i] = currentOp;
-						}
-						else {
-							// current Op is history ignore it				
-						}
+					} else { // non concurrent operations at same Index - something has to be replaced
+						if (result == 1)  // current op happened later than logs operation at current index
+							logs[i] = currentOp;// replace log op
 						opHandled = true;
 						break;
 					}
-                }
+				}
+			} // end for
+			if (!opHandled) {
+				logs.push(currentOp);
+			}
+		} // end while
+	}
 
-            } // end for
-            if (!opHandled) {
-                logs.push(currentOp);
-            }
-        } // end else
-    } // end while
-} 
-	
 
-var insert1 = new Operation('i', 1, 'a', 1, [1,0,0]);
-var insert2 = new Operation('i', 2, 'b', 1, [2,0,0]);
-var insert3 = new Operation('i', 1, 'c', 2, [0,1,0]);
-var insert4 = new Operation('i', 2, 'd', 2, [0,2,0]);
-//var insert5 = new Operation('i', 3, 'd', 1, [2,1,2]);
-//var insert5 = new Operation('i', 1, 'm', 3, [2,2,1]);
-//var insert6 = new Operation('i', 2, 'n', 3, [2,2,2]);
+//update the text in the editor.
+	function applyChanges() {
+		console.log('updating the editor');
+		text = new Array();
+		var count = 0;
+		for (var i = 0; i < logs.length; i++) {
+			count++;
+			//console.log(logs[i]);
+			if (logs[i].type == 'i') {
+				text[i] = logs[i].character;
+				logs[i].index = i;
+			} else {
+				text[i] = ' ';
+			};
+		};
+		var contents = '';
+		for (var i = 0; i < count; i++)
+			contents = contents + text[i];
+		console.log('formed contents are ' + contents);
+		//editor.setValue(contents);
+		logs = []; //rest the logs.
+	};
+
+var insert1 = new Operation('i', 0, 'a', 1, [0,1,0]);
+var insert2 = new Operation('i', 1, 'b', 1, [0,2,0]);
+var insert3 = new Operation('i', 2, 'c', 1, [0,3,0]);
+var insert4 = new Operation('i', 3, ' ', 1, [0,4,0]);
+var insert5 = new Operation('i', 4, 'd', 1, [0,5,0]);
+var insert6 = new Operation('i', 5, 'e', 1, [0,6,0]);
+var insert7 = new Operation('i', 6, 'f', 1, [0,7,0]);
+var insert8 = new Operation('i', 7, 'g', 1, [0,8,0]);
+var insert9 = new Operation('i', 8, 'h', 2, [0,8,1]);
+var insert10 = new Operation('i', 9, 'i', 2, [0,8,2]);
+var insert11 = new Operation('i', 10, 'j', 2, [0,8,3]);
+var insert12 = new Operation('i', 11, 'k', 2, [0,8,4]);
+var insert13 = new Operation('i', 12, 'l', 2, [0,8,5]);
+var insert14 = new Operation('i', 12, 'm', 1, [0,9,5]);
+var insert15 = new Operation('i', 13, 'l', 2, [0,9,6]);
+var insert16 = new Operation('i', 12, 'p', 1, [0,10,6]);
 opHeap.push(insert1);
 opHeap.push(insert2);
 opHeap.push(insert3);
 opHeap.push(insert4);
-//opHeap.push(insert5);
-//opHeap.push(insert6);
-//opHeap.push(insert3);
+opHeap.push(insert5);
+opHeap.push(insert6);
+opHeap.push(insert7);
+opHeap.push(insert8);
+opHeap.push(insert9);
+opHeap.push(insert10);
+opHeap.push(insert11);
+opHeap.push(insert12);
+opHeap.push(insert13);
+opHeap.push(insert14);
+opHeap.push(insert15);
+opHeap.push(insert16);
 
-var size = opHeap.size();
-//for(var i =0; i < size; i++) {
-//  console.log(opHeap.pop());//
-//}
 logs = [];
-operationalTransTest(opHeap);
-console.log(logs);
-//opHeap.push(insert5);
-//operationalTrans(opHeap);
-
-
-/*var vClkLen = currentOp.vectorClk.length;
-var greater = false;
-var lesser = false;
-for(var clkIndex = 0; clkIndex < vClkLen; clkIndex++) {
-	if( currentOp.vectorClk[clkIndex] > logs[i].vectorClk[clkIndex] ) {
-		greater = true;
-	}
-	if( currentOp.vectorClk[clkIndex] < logs[i].vectorClk[clkIndex] ) {
-		lesser = true;
-	}
-}
-var result = 0;
-if ( greater && lesser) result = 0;
-else if (greater) result = 1;
-else if (lesser) result = -1;
-else result = 0;*/
+operationalTrans(opHeap);
+applyChanges();

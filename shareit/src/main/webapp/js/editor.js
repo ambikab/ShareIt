@@ -7,7 +7,7 @@ var docId = null; //unique id for the document this client is accessing
 var clientCnt = 0;
 
 function log(message) {
-	//console.log(message);
+	console.log(message);
 }
 
 $( document ).ready(function() {
@@ -47,11 +47,9 @@ $( document ).ready(function() {
 					clockVal[i] = 0;
 					tempMax[i] = 0; //temp vector.
 				}
-
 				docId = data.docId; //initializes the document id.
 				var tmpSize = 0;
 				clientId = data.activeClients; //initializes the client-id for this session.
-
 				//extract the operations so far and build the opHeap.
 				var opHeap = new MinHeap(null, function(operation1, operation2) {
 					return comparator(operation1, operation2);
@@ -59,18 +57,19 @@ $( document ).ready(function() {
 
 				var jsonOp = data.history.operations;
 				for (var index = 0; index < jsonOp.length; index++) {
-					log(jsonOp[index]);
+					//console.log(jsonOp[index]);
 					if (jsonOp[index] != null) {
 						tmpSize++;
-						console.log(jsonOp);
+						//console.log(jsonOp);
 						var tmpClk = jsonOp[index].vectorClk.vector.slice();
 						tempMax = getMax(tempMax, tmpClk);
-						opHeap.push(new Operation(jsonOp[index].type, jsonOp[index].index, jsonOp[index].character, jsonOp[index].clientId, tmpClk));
+						opHeap.push(new Operation(jsonOp[index].type, jsonOp[index].index, jsonOp[index].character, jsonOp[index].clientId, new Vector(tmpClk)));
 					}
 				}
 				if (tmpSize != 0) {
+					console.log(' number of incoming operations are : ', tmpSize);
 					maxVector(tempMax); //update the vector clk.
-					syncHead = syncHead + tmpSize; //move the sync head to include the new operations.
+					//syncHead = syncHead + tmpSize; //move the sync head to include the new operations.
 					operationalTrans(opHeap); //transformation to hte buffer is made.
 					applyChanges(); //apply the transformed changes to the editor.
 				}
@@ -92,14 +91,14 @@ $( document ).ready(function() {
 			clockVal[clientId] = clockVal[clientId] + 1;
 			var opVectorClock = new Vector(clockVal);
 			operation = new Operation('i', from, text, clientId, opVectorClock);
-			console.log(operation);
+			//console.log(operation);
 			localCache[localCache.length] = operation;
 			break;
 		case "+delete": //TODO: should be modified for del followed by insert. 
 			clockVal[clientId] = clockVal[clientId] + 1;
 			var opVectorClock = new Vector(clockVal);
 			operation = new Operation('i', from, text, clientId, opVectorClock);
-			localCache[localCache.length] = operation;
+			//localCache[localCache.length] = operation;
 			break;
 		}
 	});
@@ -116,9 +115,8 @@ $( document ).ready(function() {
 
 		//Step03. Get the difference from the server.
 		var tempMax = [];
-		for (var i = 0; i < parseInt(clientCnt); i++) {
+		for (var i = 0; i < parseInt(clientCnt); i++) 
 			tempMax[i] = 0; //temp vector.
-		}
 		//send the local history and fetch the new operations from server.
 		//forward the sync-head by the number of operations received from server.
 		//forward the vector clock by the vector clock value received from the server.
@@ -129,22 +127,20 @@ $( document ).ready(function() {
 			dataType: 'json',
 			data: {'docId': docId, 'syncHead' : syncHead},
 			success: function(data) {
-				if ((data == undefined ) || (data == null)) {
-					//sendServer();
+				if ((data == undefined ) || (data == null)) 
 					return;
-				}
 				console.log("fetched new data from server.");
 				var jsonOps = data.operations;
+				console.log('new operations from server are: ');
 				for (var i = 0; i < jsonOps.length; i++) {
 					var jsonOp = jsonOps[i];
 					var tmpVector = jsonOp.vectorClk.vector.slice();
 					tempMax = getMax(tempMax, tmpVector);
-					console.log(jsonOps[i]);
-					console.log(tempMax);
-					opHeap.push(new Operation(jsonOp.type, jsonOp.index, jsonOp.character, jsonOp.clientId, new Vector(tempMax)));
+					var newServerOp = new Operation(jsonOp.type, jsonOp.index, jsonOp.character, jsonOp.clientId, new Vector(tmpVector));
+					//console.log(newServerOp);
+					opHeap.push(newServerOp);
 				}
 				if (jsonOps.length != 0) {
-					syncHead = syncHead + jsonOps.length;
 					maxVector(tempMax); //update the site's clock to include operations from remote sites as well.
 					operationalTrans(opHeap); //transform the remote operations before applying
 					applyChanges(); // apply changes to the heap.
@@ -181,9 +177,10 @@ $( document ).ready(function() {
 	//update the text in the editor.
 	function applyChanges() {
 		log('updating the editor');
-		text = new Array();
-		var i = 0;
-		for (i = 0; i < logs.length; i++) {
+		var text = new Array();
+		var count = 0;
+		for (var i = 0; i < logs.length; i++) {
+			count++;
 			//console.log(logs[i]);
 			if (logs[i].type == 'i') {
 				text[i] = logs[i].character;
@@ -193,10 +190,11 @@ $( document ).ready(function() {
 			};
 		};
 		var contents = '';
-		for (var i = 0;i < text.length; i++) {
+		for (var i = 0; i < count; i++)
 			contents = contents + text[i];
-		}
+		console.log('formed contents are ' + contents);
 		editor.setValue(contents);
+		logs = []; //rest the logs.
 	};
 
 	//returns 1 if operation1 is of higher priority than operation2.
@@ -208,7 +206,7 @@ $( document ).ready(function() {
 		if (operation1.index < operation2.index) return 1;
 		else if (operation1.index > operation2.index) return -1;
 		else {
-			var vectorPrio = isEquals(operation1.vectorClk, operation1.vectorClk);
+			var vectorPrio = isEquals(operation1.vectorClk.vector, operation1.vectorClk.vector);
 			if (operation1.clientId == operation2.clientId) {
 				if (vectorPrio == 0) return 0;
 				return vectorPrio == 1 ? 2 : -2; 
@@ -224,9 +222,9 @@ $( document ).ready(function() {
 	function isEquals(vector1, vector2) {
 		var less = false; var great = false;
 		for (var clientIds in vector1) {
-			if (vector1[clientIds] > vector2[clientIds])
+			if (parseInt(vector1[clientIds]) > parseInt(vector2[clientIds]))
 				great = true;
-			if (vector1[clientIds] < vector2[clientIds])
+			if (parseInt(vector1[clientIds]) < parseInt(vector2[clientIds]))
 				less = true;
 		}
 		if (great && less) return 0;
@@ -239,11 +237,11 @@ $( document ).ready(function() {
 	function maxVector(vector1) {
 		if ((vector1 == undefined) || (vector1 == null)) return;
 		for (var cId in vector1) 
-			clockVal[cId] = max(clockVal[cId], vector1[cId]);
+			clockVal[cId] = max(parseInt(clockVal[cId]), parseInt(vector1[cId]));
 	}
 
 	function max(val1, val2) {
-		if (val1 > val2) return val1;
+		if (parseInt(val1) > parseInt(val2)) return val1;
 		return val2;
 	};
 
@@ -271,81 +269,71 @@ $( document ).ready(function() {
 	}*/
 
 	function comparator(op1, op2) {
-		var vectorPrio = isEquals(op1.vectorClk, op2.vectorClk);
+		var vectorPrio = isEquals(op1.vectorClk.vector, op2.vectorClk.vector);
 		if (vectorPrio == 1) return 1;
 		if (vectorPrio == -1) return -1;
-		if(op1.index < op2.index) return 1;
-		if(op1.index > op2.index) return -1;
+		if(op1.index < op2.index) return -1;
+		if(op1.index > op2.index) return 1;
 		if(op1.clientId < op2.clientId) return -1;
 		return 1;
+
 	};
 
 	function operationalTrans(opHeap) {
 		while (opHeap.size() > 0) {
 			var currentOp = opHeap.pop();
 			var len = logs.length;
-			if (len == 0) {
+			var opHandled = false;
+			if (len == 0) { // for the very first operations.
+				console.log('logs are recreated.');
 				logs.push(currentOp);
-			} 
-			else {
-				var opHandled = false;
-				for (var i = 0; i < len; i++) {
-					// compare currOp to op in log
-					// case 1 currOp is at a index > currlogOp
-					if (currentOp.index > logs[i].index) {
-						continue;
-					}
-					// case 2 currOp is at a index < currlogOp
-					else if ( currentOp.index < logs[i].index ) {
-						// example current op index 2 log[i] index is 4
-						// handle and break
-						opHandled = true;
-						var tempLog = logs.slice(0, i - 1); // should handle logs of size 1
-						tempLog.push(currentOp);
-						tempLog.concat(logs.slice(i));
-						logs = tempLog.slice(0);
-						break;
-					}
-					// case 3 currOp is at a index = currlogOp
-					else {
-						// concurrent Operations at same Index
-						var result = isEquals(currentOp.vectorClk, logs[i].vectorClk);
-						console.log(result);
-						if ( result == 0 ) { 
-							// will be handled in the next case
-							if (currentOp.clientId > logs[i].clientId) 
-								continue;
-							else if( currentOp.clientId < logs[i].clientId ) {
-								// insert before current log op and break
-								opHandled = true;
-								var tempLog = logs.slice(0, i - 1); // should handle logs of size 1
-								tempLog.push(currentOp);
-								tempLog.concat(logs.slice(i));
-								logs = tempLog.slice(0);
-								break;
-							}
-							else { // same client and concurrent is not possible at all 
-								console.log("Duplicate operation encountered..");
-								opHandled = true;
-								break;
-							}
-						} else { // non concurrent operations at same Index - something has to be replaced
-							if (result == 1) { // current op happened later than logs operation at current index
-								// replace log op
-								logs[i] = currentOp;
-							}
-							else {
-								// current Op is history ignore it				
-							}
+				continue;
+			}
+			for (var i = 0; i < len; i++) {
+				// case 1 currOp is at a index > currlogOp
+				if (parseInt(currentOp.index) > parseInt(logs[i].index))
+					continue;
+				// case 2 currOp is at a index < currlogOp:::example current op index 2 log[i] index is 4
+				else if ( parseInt(currentOp.index) < parseInt(logs[i].index) ) { // handle and break
+					opHandled = true;
+					var tempLog = logs.slice(0, i - 1);
+					tempLog.push(currentOp);
+					tempLog = tempLog.concat(logs.slice(i));
+					logs = tempLog.slice(0);
+					break;
+				}
+				// case 3 currOp is at a index = currlogOp
+				else {
+					// concurrent Operations at same Index
+					var result = isEquals(currentOp.vectorClk.vector, logs[i].vectorClk.vector);
+					if ( result == 0 ) { 
+						if (parseInt(currentOp.clientId) > parseInt(logs[i].clientId)) 
+							continue;
+						else if(parseInt(currentOp.clientId) < parseInt(logs[i].clientId)) {
+							// insert before current log op and break
+							opHandled = true;
+							var tempLog = logs.slice(0, i - 1); // should handle logs of size 1
+							tempLog.push(currentOp);
+							logs = tempLog.concat(logs.slice(i));
+							break;
+						}
+						else { // same client and concurrent is not possible at all 
+							console.log("Duplicate operation Ignoring operation");
+							//console.log(currentOp);
 							opHandled = true;
 							break;
 						}
+					} else { // non concurrent operations at same Index - something has to be replaced
+						if (result == 1)  // current op happened later than logs operation at current index
+							logs[i] = currentOp;// replace log op
+						opHandled = true;
+						break;
 					}
-				} // end for
-				if (!opHandled) {
-					logs.push(currentOp);
 				}
-			} // end else
+			} // end for
+			if (!opHandled) {
+				logs.push(currentOp);
+			}
 		} // end while
 	}
 });
