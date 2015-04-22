@@ -73,7 +73,7 @@ $( document ).ready(function() {
 					operationalTrans(opHeap); //transformation to hte buffer is made.
 					applyChanges(); //apply the transformed changes to the editor.
 				}
-				setInterval(function () {sync();}, 15000); //UNCOMMENT THIS TO BEGIN POLLING.
+				setInterval(function () {sync();}, 10000); //UNCOMMENT THIS TO BEGIN POLLING.
 			} ,
 			error: function() {
 				console.log('error in fetching document contets.');
@@ -84,25 +84,29 @@ $( document ).ready(function() {
 	//based on the event generated create a log entry.
 	editor.on('change',function(cMirror, event){
 		var from = event.from.ch;
+		var line = event.from.line;
+		var temp = editor.getRange({'line':0,'ch':0},{'line': line, 'ch': from});
+		var pos = temp.length;
 		var text = event.text[0];
 		var operation = null;
 		switch(event.origin) {
 		case "+input":
 			clockVal[clientId] = clockVal[clientId] + 1;
 			var opVectorClock = new Vector(clockVal);
-			operation = new Operation('i', from, text, clientId, opVectorClock);
-			//console.log(operation);
+			if (text == '') //inserts a new line operation.
+				operation = new Operation('i', pos, '\n', clientId, opVectorClock);
+			else 
+				operation = new Operation('i', pos, text, clientId, opVectorClock);
+			console.log(operation);
 			localCache[localCache.length] = operation;
 			break;
 		case "+delete": //TODO: should be modified for del followed by insert. 
 			clockVal[clientId] = clockVal[clientId] + 1;
 			var opVectorClock = new Vector(clockVal);
 			operation = new Operation('i', from, text, clientId, opVectorClock);
-			//localCache[localCache.length] = operation;
 			break;
 		}
 	});
-
 	//set up periodical polling for sync and update text.
 	function sync() {
 		//Step01: Set up heap.
@@ -307,6 +311,10 @@ $( document ).ready(function() {
 					// concurrent Operations at same Index
 					var result = isEquals(currentOp.vectorClk.vector, logs[i].vectorClk.vector);
 					if ( result == 0 ) { 
+						if (currentOp.character == logs[i].character) { //two clients have done the same modification.
+							opHandled = true;
+							break;
+						}
 						if (parseInt(currentOp.clientId) > parseInt(logs[i].clientId)) 
 							continue;
 						else if(parseInt(currentOp.clientId) < parseInt(logs[i].clientId)) {
